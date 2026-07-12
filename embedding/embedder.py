@@ -8,7 +8,7 @@ import requests
 
 import config
 
-_EMBED_URL = f"{config.EMBEDDING_API_URL}/api/embed"
+_EMBED_URL = f"{config.OLLAMA_BASE_URL}/api/embed"
 
 
 def _encode(texts: list[str]) -> list[list[float]]:
