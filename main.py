@@ -39,11 +39,12 @@ def cmd_chat() -> None:
             break
         if not question:
             continue
-        sources, token_stream = answer_question_stream(question)
+        sources, token_stream, stats = answer_question_stream(question)
         print()
         for token in token_stream:
             print(token, end="", flush=True)
         print(f"\n\n[출처] {sources}")
+        print(f"[{stats.get('tokens', 0)} tokens, {stats.get('tokens_per_second', 0)} tokens/s]")
 
 
 def main() -> None:
