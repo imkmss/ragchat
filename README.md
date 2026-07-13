@@ -8,9 +8,9 @@
 git clone https://github.com/imkmss/ragchat.git
 cd ragchat
 
-python3.11 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
 
 ## 임베딩 모델 준비
