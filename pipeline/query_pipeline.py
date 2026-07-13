@@ -12,11 +12,17 @@ from retrieval.retriever import retrieve
 
 def answer_question_stream(
     question: str, top_k: int = config.TOP_K
-) -> tuple[list[dict], Iterator[str]]:
+) -> tuple[list[dict], Iterator[str], dict]:
     hits = retrieve(question, top_k=top_k)
-    messages = build_messages(question, hits)
+    # 관련성 낮은(코사인 거리가 큰) 결과는 프롬프트/출처 양쪽에서 제외한다.
+    # 이렇게 해야 "찾은 척"하지 않고, 실제로 근거로 쓴 문서만 출처로 표시된다.
+    relevant_hits = [h for h in hits if h["distance"] <= config.RELEVANCE_DISTANCE_THRESHOLD]
+
+    messages = build_messages(question, relevant_hits)
     sources = [
         {"source": h["metadata"].get("source"), "page": h["metadata"].get("page")}
-        for h in hits
+        for h in relevant_hits
     ]
-    return sources, generate_answer_stream(messages)
+    # generate_answer_stream()을 끝까지 소진한 뒤에야 stats가 채워진다.
+    stats: dict = {}
+    return sources, generate_answer_stream(messages, stats), stats
