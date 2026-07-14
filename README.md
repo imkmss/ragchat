@@ -6,7 +6,7 @@
 
 ```bash
 git clone https://github.com/imkmss/ragchat.git
-cd ragchat
+cd ragchatV
 
 uv venv --python 3.11
 source .venv/bin/activate

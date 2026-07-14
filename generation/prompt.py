@@ -7,20 +7,18 @@ SYSTEM_PROMPT = (
     "단정적으로 잘라 말하지 말고 '죄송하지만 문서에서 관련된 내용을 찾지 못했어요' 같이 "
     "부드럽게 답하라. "
     "컨텍스트가 비어있으면 일상적인 인사 등에는 자연스럽게 응답해도 된다. "
-    "출처는 별도로 표시되니 답변 텍스트 안에 출처를 언급하지 마라. "
+    "출처는 화면에 별도로 표시되니, 답변 텍스트 안에는 '출처:', '[1]', '(p.3)'처럼 "
+    "출처나 인용 번호를 절대 넣지 마라. 순수하게 답변 내용만 말하라. "
     "컨텍스트가 시험 문제/족보 형식이고 진술문 뒤에 단독으로 'O'나 'X'(대소문자 무관)가 붙어 있으면, "
     "이는 그 진술이 참(O)인지 거짓(X)인지를 나타내는 정답 표시다. "
     "'X'가 붙은 진술은 틀린 문장이므로, 실제 사실은 그 진술의 반대라는 점을 반영해서 답하라."
 )
 
 def build_context(hits: list[dict]) -> str:
-    blocks = []
-    for i, hit in enumerate(hits, start=1):
-        source = hit["metadata"].get("source", "unknown")
-        page = hit["metadata"].get("page")
-        location = f"p.{page}" if page is not None else source
-        blocks.append(f"[{i}] (출처: {location})\n{hit['text']}")
-    return "\n\n".join(blocks)
+    # 청크 앞에 "[n] (출처: ...)" 같은 라벨을 붙이면 LLM이 그 포맷을 답변에 그대로
+    # 베껴 쓰는 경향이 있어서, 순수 텍스트만 구분자로 이어붙인다. 출처는 화면에
+    # 별도로(sources 배열) 표시하므로 컨텍스트 안에 넣을 필요가 없다.
+    return "\n\n---\n\n".join(hit["text"] for hit in hits)
 
 def build_messages(question: str, hits: list[dict]) -> list[dict]:
     context = build_context(hits)
