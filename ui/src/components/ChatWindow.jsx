@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, Loader2, FileUp, X, FileText } from 'lucide-react';
+import { Send, Paperclip, Loader2, FileUp, X, FileText, Folder } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import ModelBadge from './ModelBadge';
 import { uploadDocument } from '../lib/api';
@@ -7,7 +7,7 @@ import { uploadDocument } from '../lib/api';
 const MAX_HISTORY = 5;
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
 
-export default function ChatWindow({ session, isLoading, onSend, onDocumentUploaded }) {
+export default function ChatWindow({ session, projects, isLoading, onSend, onDocumentUploaded }) {
   const [input, setInput] = useState('');
   const scrollRef = useRef(null);
   const dockRef = useRef(null);
@@ -19,6 +19,7 @@ export default function ChatWindow({ session, isLoading, onSend, onDocumentUploa
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [dockHeight, setDockHeight] = useState(0);
   const hasMessages = Boolean(session && session.messages.length > 0);
+  const project = projects?.find((p) => p.id === session?.projectId);
 
   const historyRef = useRef([]); // 최근 입력이 앞에 오도록, 최대 5개
   const historyIndexRef = useRef(-1); // -1 = 히스토리 탐색 중 아님
@@ -187,6 +188,17 @@ export default function ChatWindow({ session, isLoading, onSend, onDocumentUploa
             onChange={handleFileChange}
           />
           <ModelBadge />
+          {project && (
+            <span
+              title={`${project.name}`}
+              className="flex min-w-0 items-center gap-1.5 rounded-full border border-border/30 bg-muted/60 px-3 py-1 text-xs text-muted-foreground"
+            >
+              <Folder size={12} className="shrink-0" />
+              <span className="truncate">
+                {project.name}
+              </span>
+            </span>
+          )}
         </div>
         <button
           type="submit"
