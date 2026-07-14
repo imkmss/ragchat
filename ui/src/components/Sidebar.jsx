@@ -1,13 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, MessageSquare, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
+import {
+  Plus,
+  MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Trash2,
+  Folder,
+  FolderPlus,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 256;
 const STORAGE_KEY = 'ragchat-sidebar-width';
 
-export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete }) {
+export default function Sidebar({
+  sessions,
+  activeId,
+  onSelect,
+  onNew,
+  onDelete,
+  projects,
+  onNewProject,
+  onDeleteProject,
+  onMoveToProject,
+}) {
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedProjects, setCollapsedProjects] = useState(() => new Set());
+  const [dragOverTarget, setDragOverTarget] = useState(null); // project id, 'ungrouped', 또는 null
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem(STORAGE_KEY));
     return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
@@ -50,6 +72,15 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
     }
   };
 
+  const toggleProjectCollapsed = (id) => {
+    setCollapsedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   if (collapsed) {
     return (
       <div className="flex h-full w-12 shrink-0 flex-col items-center border-r border-border/30 bg-sidebar py-3">
@@ -64,14 +95,62 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
     );
   }
 
+  const ungrouped = sessions.filter((s) => !s.projectId);
+
+  const renderSession = (session) => (
+    <li
+      key={session.id}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', session.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => setDragOverTarget(null)}
+      className={`group flex items-center gap-1 rounded-lg pr-1 transition-colors ${
+        session.id === activeId
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+          : 'hover:bg-sidebar-accent/60 text-sidebar-foreground'
+      }`}
+    >
+      <button
+        onClick={() => onSelect(session.id)}
+        className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left text-sm truncate"
+      >
+        <MessageSquare size={14} className="shrink-0 opacity-60" />
+        <span className="truncate">{session.title}</span>
+      </button>
+      <select
+        value={session.projectId ?? ''}
+        onChange={(e) => onMoveToProject(session.id, e.target.value || null)}
+        onClick={(e) => e.stopPropagation()}
+        title="프로젝트로 이동"
+        className="hidden w-16 shrink-0 rounded-md border-none bg-transparent text-[11px] text-muted-foreground group-hover:block"
+      >
+        <option value="">일반</option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={(e) => handleDelete(e, session)}
+        className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:flex"
+        title="삭제"
+      >
+        <Trash2 size={13} />
+      </button>
+    </li>
+  );
+
   return (
     <aside
       style={{ width }}
       className="relative flex h-full shrink-0 flex-col border-r border-border/30 bg-sidebar text-sidebar-foreground"
     >
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex items-center gap-2 p-3 pb-0">
         <button
-          onClick={onNew}
+          onClick={() => onNew()}
           className="flex flex-1 items-center gap-2 rounded-lg border border-sidebar-border/50 px-3 py-2 text-sm hover:bg-sidebar-accent transition-colors"
         >
           <Plus size={16} />
@@ -86,36 +165,93 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
         </button>
       </div>
 
+      <div className="p-3 pb-2">
+        <button
+          onClick={onNewProject}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
+        >
+          <FolderPlus size={16} />
+          프로젝트
+        </button>
+      </div>
+
       <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
         {sessions.length === 0 && (
           <p className="px-2 py-4 text-sm text-muted-foreground">채팅 기록이 없습니다.</p>
         )}
-        <ul className="flex flex-col gap-1">
-          {sessions.map((session) => (
-            <li
-              key={session.id}
-              className={`group flex items-center gap-1 rounded-lg pr-1 transition-colors ${
-                session.id === activeId
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'hover:bg-sidebar-accent/60 text-sidebar-foreground'
-              }`}
+
+        {projects.map((project) => {
+          const projectSessions = sessions.filter((s) => s.projectId === project.id);
+          const isCollapsed = collapsedProjects.has(project.id);
+          return (
+            <div
+              key={project.id}
+              className="mb-1"
+              onDragOver={(e) => {
+                e.preventDefault(); // 이게 없으면 drop 이벤트가 안 일어남
+                setDragOverTarget(project.id);
+              }}
+              onDragLeave={() => setDragOverTarget((prev) => (prev === project.id ? null : prev))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const sessionId = e.dataTransfer.getData('text/plain');
+                if (sessionId) onMoveToProject(sessionId, project.id);
+                setDragOverTarget(null);
+              }}
             >
-              <button
-                onClick={() => onSelect(session.id)}
-                className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left text-sm truncate"
+              <div
+                className={`group/project flex items-center gap-1 rounded-lg pr-1 transition-colors ${
+                  dragOverTarget === project.id ? 'bg-primary/10 ring-1 ring-primary/40' : ''
+                }`}
               >
-                <MessageSquare size={14} className="shrink-0 opacity-60" />
-                <span className="truncate">{session.title}</span>
-              </button>
-              <button
-                onClick={(e) => handleDelete(e, session)}
-                className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:flex"
-                title="삭제"
-              >
-                <Trash2 size={13} />
-              </button>
-            </li>
-          ))}
+                <button
+                  onClick={() => toggleProjectCollapsed(project.id)}
+                  className="flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/60"
+                >
+                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  <Folder size={13} className="shrink-0" />
+                  <span className="flex-1 truncate">{project.name}</span>
+                  <span className="shrink-0 opacity-60">{projectSessions.length}</span>
+                </button>
+                <button
+                  onClick={() => onNew(project.id)}
+                  title="이 프로젝트에 새 채팅"
+                  className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-sidebar-accent group-hover/project:flex"
+                >
+                  <Plus size={12} />
+                </button>
+                <button
+                  onClick={() => onDeleteProject(project.id)}
+                  title="프로젝트 삭제"
+                  className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover/project:flex"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              {!isCollapsed && (
+                <ul className="flex flex-col gap-1 pl-3">{projectSessions.map(renderSession)}</ul>
+              )}
+            </div>
+          );
+        })}
+
+        <ul
+          className={`flex flex-col gap-1 rounded-lg transition-colors ${
+            dragOverTarget === 'ungrouped' ? 'bg-primary/10 ring-1 ring-primary/40' : ''
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOverTarget('ungrouped');
+          }}
+          onDragLeave={() => setDragOverTarget((prev) => (prev === 'ungrouped' ? null : prev))}
+          onDrop={(e) => {
+            e.preventDefault();
+            const sessionId = e.dataTransfer.getData('text/plain');
+            if (sessionId) onMoveToProject(sessionId, null);
+            setDragOverTarget(null);
+          }}
+        >
+          {ungrouped.map(renderSession)}
         </ul>
       </nav>
 
