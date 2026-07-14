@@ -12,57 +12,27 @@ uv venv --python 3.11
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
-
-## 임베딩 모델 준비
-
-Ollama 앱이 실행 중인지 확인하고(`http://127.0.0.1:11434`에서 상시 구동), 임베딩 모델을 한 번 받아둔다.
+## 실행 방법
 
 ```bash
-ollama pull qwen3-embedding:0.6b
+# Ollama 앱 실행 중이어야 함 (임베딩 + 로컬 폴백용)
+ollama pull qwen3-embedding:0.6b            # 임베딩 모델 (최초 1회, ~639MB)
+ollama create qwen3-8b-local -f Modelfile   # 로컬 폴백용 생성 모델 (최초 1회)
+
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -r requirements.txt
+
+python main.py index ./data     # data 폴더의 pdf/docx 인덱싱
+python main.py search <질문>     # top-k 검색 결과만 확인
+python main.py chat             # 대화형 질의응답 (검색 + 생성, 스트리밍)
+
+# 백엔드
+uvicorn server:app --reload --port 8000
+
+# 프론트엔드
+cd ui && npm install && npm run dev   # http://localhost:5173
 ```
 
-## 사용법
-
-### 1. 문서 인덱싱
-
-`data/` 폴더에 PDF/DOCX 파일을 넣고 인덱싱한다.
-
-```bash
-python main.py index ./data
-```
-
-### 2. 검색
-
-```bash
-python main.py search "여기에 질문을 입력"
-```
-
-관련도가 높은 순으로 top-5 문서 조각과 출처(파일명, 페이지)를 보여준다.
-
-## 어떻게 동작하는가
-
-```
-문서(PDF/DOCX)
-  → 파싱 (PyMuPDF / python-docx)
-  → 청킹 (토큰 길이 기준, 800/100 overlap)
-  → 임베딩 (Qwen3-Embedding-0.6B, Ollama 로컬 API)
-  → 저장 (ChromaDB)
-      ↓ 질문 시
-  → 질문 임베딩 → 코사인 유사도 top-5 검색 → 결과 출력
-```
-
-| 구성 요소 | 위치 |
-|---|---|
-| 문서 파싱/청킹 | `ingestion/` |
-| 임베딩 호출 | `embedding/embedder.py` |
-| 벡터 저장/검색 | `vectorstore/store.py` |
-| 검색 로직 | `retrieval/retriever.py` |
-| 인덱싱 파이프라인 | `pipeline/index_pipeline.py` |
-| 설정값 | `config.py` |
-
-더 자세한 설계 배경과 결정 이유는 [IMPLEMENTATION.md](./IMPLEMENTATION.md)에 정리되어 있다.
-
-## 남은 작업
-
-- [ ] 답변 생성(LLM) 단계 재설계
-- [ ] 웹 UI
+(`192.168.123.60:8081`) 접속이 안 되는 환경(회사 밖, VPN 미접속)에서도 로컬 폴백으로
+생성은 계속 동작하지만, 속도/품질은 사내망 모델보다 떨어진다.
