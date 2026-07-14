@@ -16,11 +16,13 @@ export function saveSessions(sessions) {
 }
 
 export function createSession() {
+  const now = Date.now();
   return {
     id: crypto.randomUUID(),
     title: '새 채팅',
     messages: [],
-    createdAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 

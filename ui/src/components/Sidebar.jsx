@@ -86,7 +86,7 @@ export default function Sidebar({ sessions, activeId, onSelect, onNew, onDelete 
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 pb-3">
+      <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
         {sessions.length === 0 && (
           <p className="px-2 py-4 text-sm text-muted-foreground">채팅 기록이 없습니다.</p>
         )}

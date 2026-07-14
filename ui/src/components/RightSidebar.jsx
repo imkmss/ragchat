@@ -80,7 +80,7 @@ export default function RightSidebar({ documents, onRefresh }) {
       <div className="px-3 pb-1 text-xs font-medium text-muted-foreground">
         인덱싱된 문서 ({documents.length})
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 pb-3">
+      <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
         {documents.length === 0 && (
           <p className="px-2 py-4 text-sm text-muted-foreground">업로드된 문서가 없습니다.</p>
         )}

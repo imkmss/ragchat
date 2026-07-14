@@ -101,6 +101,15 @@ body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge legacy */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 #root {
   height: 100vh;
 }

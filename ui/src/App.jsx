@@ -26,7 +26,11 @@ function App() {
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
   const updateSession = (id, updater) => {
-    setSessions((prev) => prev.map((s) => (s.id === id ? updater(s) : s)));
+    setSessions((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...updater(s), updatedAt: Date.now() } : s));
+      // 방금 수정된(=updatedAt이 가장 최근인) 채팅이 목록 맨 위로 오도록 정렬한다.
+      return updated.sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt));
+    });
   };
 
   const handleNew = () => {
