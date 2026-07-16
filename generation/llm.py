@@ -96,3 +96,53 @@ def generate_answer_stream(messages: list[dict], stats: dict | None = None) -> I
         # 스트림 도중 끊기는 경우는 이미 토큰이 나간 뒤라 폴백하지 않고 그대로 에러 처리한다.
         print(f"[llm] {config.GENERATION_BASE_URL} 연결 실패 — 로컬 Ollama로 폴백")
         yield from _stream_local(messages, stats)
+
+
+_TITLE_SYSTEM_PROMPT = (
+    "사용자 질문의 핵심 주제를 한국어 명사구로 짧게(2~6단어) 요약해라. "
+    "설명, 문장부호, 따옴표 없이 주제만 출력해라."
+)
+_TITLE_MAX_TOKENS = 20
+
+
+def _title_messages(question: str) -> list[dict]:
+    return [
+        {"role": "system", "content": _TITLE_SYSTEM_PROMPT},
+        {"role": "user", "content": question},
+    ]
+
+
+def generate_title(question: str) -> str:
+    """채팅 제목용으로, 질문 전체가 아니라 핵심 주제만 짧게 뽑아낸다. (스트리밍 없이 한 번에 응답)"""
+    messages = _title_messages(question)
+    try:
+        return _generate_title_remote(messages)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        return _generate_title_local(messages)
+
+
+def _generate_title_remote(messages: list[dict]) -> str:
+    payload = {
+        "model": config.GENERATION_MODEL,
+        "messages": messages,
+        "stream": False,
+        "temperature": 0.2,
+        "max_tokens": _TITLE_MAX_TOKENS,
+    }
+    response = requests.post(
+        _REMOTE_CHAT_URL, json=payload, timeout=(config.GENERATION_CONNECT_TIMEOUT, 30)
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"].strip()
+
+
+def _generate_title_local(messages: list[dict]) -> str:
+    payload = {
+        "model": config.LOCAL_GENERATION_MODEL,
+        "messages": messages,
+        "stream": False,
+        "options": {"temperature": 0.2, "num_predict": _TITLE_MAX_TOKENS},
+    }
+    response = requests.post(_LOCAL_CHAT_URL, json=payload, timeout=30)
+    response.raise_for_status()
+    return response.json()["message"]["content"].strip()
