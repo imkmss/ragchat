@@ -2,18 +2,38 @@ import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import RightSidebar from './components/RightSidebar';
-import { streamChat, listDocuments } from './lib/api';
-import { loadSessions, saveSessions, createSession, deriveTitle } from './lib/storage';
+import { streamChat, listDocuments, generateTitle } from './lib/api';
+import {
+  loadSessions,
+  saveSessions,
+  createSession,
+  deriveTitle,
+  loadProjects,
+  saveProjects,
+  createProject,
+} from './lib/storage';
+
+const MAX_HISTORY_MESSAGES = 8; // config.py의 MAX_HISTORY_MESSAGES와 맞춰둔다
 
 function App() {
   const [sessions, setSessions] = useState(() => loadSessions());
-  const [activeId, setActiveId] = useState(() => sessions[0]?.id ?? null);
+  // 페이지를 새로 열 때마다 마지막으로 보던 채팅을 이어서 띄우지 않고,
+  // 항상 "새 채팅" 빈 화면부터 시작한다. 기존 대화 기록은 사이드바에 그대로 남아있다.
+  const [activeId, setActiveId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
+  const [projects, setProjects] = useState(() => loadProjects());
+  // "새 채팅"을 눌러도 세션은 아직 안 만들고(목록에 안 남게), 실제로 첫 메시지를
+  // 보낼 때 만든다. 그 전까지 이 프로젝트 소속으로 만들 예정인지만 기억해둔다.
+  const [draftProjectId, setDraftProjectId] = useState(null);
 
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  useEffect(() => {
+    saveProjects(projects);
+  }, [projects]);
 
   const refreshDocuments = async () => {
     setDocuments(await listDocuments());
@@ -33,27 +53,62 @@ function App() {
     });
   };
 
-  const handleNew = () => {
-    const session = createSession();
-    setSessions((prev) => [session, ...prev]);
-    setActiveId(session.id);
+  const handleNew = (projectId = null) => {
+    setActiveId(null);
+    setDraftProjectId(projectId);
+  };
+
+  const handleSelect = (id) => {
+    setActiveId(id);
+    setDraftProjectId(null); // 기존 채팅을 골랐으니 "새 채팅 대기" 상태는 해제
   };
 
   const handleDeleteSession = (id) => {
     setSessions((prev) => prev.filter((s) => s.id !== id));
-    if (id === activeId) setActiveId(null);
+    if (id === activeId) {
+      setActiveId(null);
+      setDraftProjectId(null);
+    }
+  };
+
+  const handleNewProject = () => {
+    const name = window.prompt('프로젝트 이름을 입력하세요')?.trim();
+    if (!name) return;
+    setProjects((prev) => [createProject(name), ...prev]);
+  };
+
+  const handleDeleteProject = (id) => {
+    const project = projects.find((p) => p.id === id);
+    if (!project) return;
+    if (!window.confirm(`"${project.name}" 프로젝트를 삭제할까요? (채팅 자체는 지워지지 않고 일반 채팅으로 남습니다)`)) {
+      return;
+    }
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    // 프로젝트만 없애고, 그 안의 채팅은 일반(미분류) 채팅으로 남긴다.
+    setSessions((prev) => prev.map((s) => (s.projectId === id ? { ...s, projectId: null } : s)));
+  };
+
+  const handleMoveToProject = (sessionId, projectId) => {
+    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)));
   };
 
   const handleSend = async (question) => {
     let session = activeSession;
     if (!session) {
-      session = createSession();
+      session = createSession(draftProjectId);
       setSessions((prev) => [session, ...prev]);
       setActiveId(session.id);
+      setDraftProjectId(null);
     }
 
     const sessionId = session.id;
     const isFirstMessage = session.messages.length === 0;
+    // 새 질문을 추가하기 전 시점의 대화 기록에서 최근 것만 잘라 히스토리로 보낸다.
+    // session.messages 자체(화면 표시/localStorage 저장)는 그대로 두고, 이번 요청에만 쓸
+    // 임시 사본을 만드는 것 — sources/stats 같은 UI 전용 필드는 제외하고 role/content만 남긴다.
+    const history = session.messages
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map(({ role, content }) => ({ role, content }));
 
     updateSession(sessionId, (s) => ({
       ...s,
@@ -65,9 +120,17 @@ function App() {
       ],
     }));
 
+    if (isFirstMessage) {
+      // 임시로 질문 앞부분을 제목으로 써두고, 주제 요약이 오면 그걸로 교체한다.
+      // 실패해도(네트워크 등) 기존 제목을 그대로 두면 되므로 조용히 무시한다.
+      generateTitle(question)
+        .then((title) => updateSession(sessionId, (s) => ({ ...s, title })))
+        .catch(() => {});
+    }
+
     setIsLoading(true);
     try {
-      await streamChat(question, {
+      await streamChat(question, history, {
         onSources: (sources) => {
           updateSession(sessionId, (s) => {
             const messages = [...s.messages];
@@ -116,12 +179,17 @@ function App() {
       <Sidebar
         sessions={sessions}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={handleSelect}
         onNew={handleNew}
         onDelete={handleDeleteSession}
+        projects={projects}
+        onNewProject={handleNewProject}
+        onDeleteProject={handleDeleteProject}
+        onMoveToProject={handleMoveToProject}
       />
       <ChatWindow
         session={activeSession}
+        projects={projects}
         isLoading={isLoading}
         onSend={handleSend}
         onDocumentUploaded={refreshDocuments}
