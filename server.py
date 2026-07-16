@@ -16,7 +16,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import config
-from pipeline.index_pipeline import SUPPORTED_SUFFIXES, index_directory, index_file
+from generation.llm import generate_title
+from pipeline.index_pipeline import SUPPORTED_SUFFIXES, index_directory, index_document
 from pipeline.query_pipeline import answer_question_stream
 from vectorstore.store import delete_document, get_document_chunks, list_documents
 
@@ -32,13 +33,23 @@ app.add_middleware(
 )
 
 
+class Message(BaseModel):
+    role: str
+    content: str
+
+
 class ChatRequest(BaseModel):
     question: str
     top_k: int = config.TOP_K
+    history: list[Message] = []
 
 
 class IndexRequest(BaseModel):
     path: str
+
+
+class TitleRequest(BaseModel):
+    question: str
 
 
 def _sse(event: dict) -> str:
@@ -48,7 +59,10 @@ def _sse(event: dict) -> str:
 @app.post("/chat")
 def chat(req: ChatRequest) -> StreamingResponse:
     def event_stream():
-        sources, token_stream, stats = answer_question_stream(req.question, top_k=req.top_k)
+        history = [m.model_dump() for m in req.history]
+        sources, token_stream, stats = answer_question_stream(
+            req.question, top_k=req.top_k, history=history
+        )
         yield _sse({"type": "sources", "data": sources})
         try:
             for token in token_stream:
@@ -59,6 +73,11 @@ def chat(req: ChatRequest) -> StreamingResponse:
         yield _sse({"type": "done", "data": stats})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.post("/title")
+def title(req: TitleRequest) -> dict:
+    return {"title": generate_title(req.question)}
 
 
 @app.post("/index")
@@ -73,12 +92,10 @@ def upload(file: UploadFile = File(...)) -> dict:
     if suffix not in SUPPORTED_SUFFIXES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 파일 형식: {suffix}")
 
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    dest = config.DATA_DIR / file.filename
-    with dest.open("wb") as f:
-        f.write(file.file.read())
-
-    count = index_file(dest)
+    # 디스크에 안 쓰고 업로드된 바이트를 그대로 파싱한다 — 인덱싱이 끝나면
+    # ChromaDB에 검색 가능한 내용이 다 들어가므로 원본 파일을 남겨둘 필요가 없다.
+    data = file.file.read()
+    count = index_document(data, file.filename)
     return {"filename": file.filename, "chunks": count}
 
 
