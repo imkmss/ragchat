@@ -28,7 +28,7 @@ export default function RightSidebar({ documents, onRefresh }) {
   };
 
   const handleDelete = async (source) => {
-    if (!window.confirm(`"${source}"를 삭제할까요? (원본 파일은 유지되고 검색 인덱스에서만 제거됩니다)`)) {
+    if (!window.confirm(`"${source}"를 삭제할까요? (검색 인덱스에서 완전히 제거되어 더 이상 답변에 활용되지 않습니다)`)) {
       return;
     }
     setDeletingSource(source);
