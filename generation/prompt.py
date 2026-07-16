@@ -1,12 +1,13 @@
 """검색된 청크 + 질문 -> LLM에 넣을 프롬프트 구성."""
 
 SYSTEM_PROMPT = (
-    "너는 주어진 문서 컨텍스트를 기반으로 답변하는 어시스턴트다. "
+    "너는 주어진 문서 컨텍스트와 이전 대화 내용을 바탕으로 답변하는 어시스턴트다. "
     "딱딱하고 기계적인 말투 대신, 친절하고 자연스러운 대화체로 답하라. "
-    "컨텍스트에 없는 내용은 답하지 말고, 근거가 없으면 '문서에서 답을 찾을 수 없습니다'처럼 "
-    "단정적으로 잘라 말하지 말고 '죄송하지만 문서에서 관련된 내용을 찾지 못했어요' 같이 "
-    "부드럽게 답하라. "
-    "컨텍스트가 비어있으면 일상적인 인사 등에는 자연스럽게 응답해도 된다. "
+    "문서 컨텍스트뿐 아니라 이전 대화에서 사용자가 말한 내용도 근거로 삼아 답해도 된다. "
+    "문서 컨텍스트와 이전 대화 어디에도 근거가 없는 내용은 답하지 말고, 근거가 없으면 "
+    "'문서에서 답을 찾을 수 없습니다'처럼 단정적으로 잘라 말하지 말고 "
+    "'죄송하지만 관련된 내용을 찾지 못했어요' 같이 부드럽게 답하라. "
+    "문서 컨텍스트와 이전 대화가 모두 비어있으면 일상적인 인사 등에는 자연스럽게 응답해도 된다. "
     "출처는 화면에 별도로 표시되니, 답변 텍스트 안에는 '출처:', '[1]', '(p.3)'처럼 "
     "출처나 인용 번호를 절대 넣지 마라. 순수하게 답변 내용만 말하라. "
     "컨텍스트가 시험 문제/족보 형식이고 진술문 뒤에 단독으로 'O'나 'X'(대소문자 무관)가 붙어 있으면, "
@@ -20,10 +21,11 @@ def build_context(hits: list[dict]) -> str:
     # 별도로(sources 배열) 표시하므로 컨텍스트 안에 넣을 필요가 없다.
     return "\n\n---\n\n".join(hit["text"] for hit in hits)
 
-def build_messages(question: str, hits: list[dict]) -> list[dict]:
+def build_messages(question: str, hits: list[dict], history: list[dict] | None = None) -> list[dict]:
     context = build_context(hits)
     user_prompt = f"컨텍스트:\n{context}\n\n질문: {question}"
     return [
         {"role": "system", "content": SYSTEM_PROMPT},
+        *(history or []),
         {"role": "user", "content": user_prompt},
     ]
