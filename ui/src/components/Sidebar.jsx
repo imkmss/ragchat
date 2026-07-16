@@ -81,6 +81,37 @@ export default function Sidebar({
     });
   };
 
+  // 프로젝트별 채팅 개수가 이전 렌더보다 늘었으면(새로 생겼든, 다른 곳에서 옮겨왔든
+  // 상관없이) 그 프로젝트를 자동으로 펼친다.
+  const countSessionsByProject = (list) => {
+    const counts = new Map();
+    list.forEach((s) => {
+      if (!s.projectId) return;
+      counts.set(s.projectId, (counts.get(s.projectId) ?? 0) + 1);
+    });
+    return counts;
+  };
+
+  const prevProjectCountsRef = useRef(countSessionsByProject(sessions));
+
+  useEffect(() => {
+    const prevCounts = prevProjectCountsRef.current;
+    const currentCounts = countSessionsByProject(sessions);
+    const projectsToExpand = [...currentCounts.entries()]
+      .filter(([id, count]) => count > (prevCounts.get(id) ?? 0))
+      .map(([id]) => id);
+
+    if (projectsToExpand.length > 0) {
+      setCollapsedProjects((prev) => {
+        const next = new Set(prev);
+        projectsToExpand.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+
+    prevProjectCountsRef.current = currentCounts;
+  }, [sessions]);
+
   if (collapsed) {
     return (
       <div className="flex h-full w-12 shrink-0 flex-col items-center border-r border-border/30 bg-sidebar py-3">
