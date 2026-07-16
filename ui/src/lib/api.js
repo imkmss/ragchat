@@ -3,11 +3,11 @@
 
 const API_BASE = '/api';
 
-export async function streamChat(question, { onSources, onToken, onDone, onError }) {
+export async function streamChat(question, history, { onSources, onToken, onDone, onError }) {
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   });
 
   if (!response.ok || !response.body) {
@@ -46,6 +46,17 @@ export async function streamChat(question, { onSources, onToken, onDone, onError
       else if (event.type === 'done') onDone?.(event.data);
     }
   }
+}
+
+export async function generateTitle(question) {
+  const response = await fetch(`${API_BASE}/title`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question }),
+  });
+  if (!response.ok) throw new Error(`제목 생성 실패 (${response.status})`);
+  const data = await response.json();
+  return data.title;
 }
 
 export async function indexDirectory(path) {
