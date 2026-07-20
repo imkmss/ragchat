@@ -9,7 +9,11 @@ import {
   FolderPlus,
   ChevronDown,
   ChevronRight,
+  Upload,
+  Loader2,
 } from 'lucide-react';
+
+const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
 
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 420;
@@ -26,10 +30,14 @@ export default function Sidebar({
   onNewProject,
   onDeleteProject,
   onMoveToProject,
+  onUploadToProject,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState(() => new Set());
   const [dragOverTarget, setDragOverTarget] = useState(null); // project id, 'ungrouped', 또는 null
+  const uploadFileInputRef = useRef(null);
+  const uploadTargetProjectIdRef = useRef(null); // 업로드 버튼을 누른 프로젝트를 기억해뒀다가 파일 선택 후 씀
+  const [uploadingProjectId, setUploadingProjectId] = useState(null);
   const [width, setWidth] = useState(() => {
     const saved = Number(localStorage.getItem(STORAGE_KEY));
     return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
@@ -69,6 +77,31 @@ export default function Sidebar({
     e.stopPropagation();
     if (window.confirm(`"${session.title}" 채팅을 삭제할까요?`)) {
       onDelete(session.id);
+    }
+  };
+
+  const startUploadToProject = (projectId) => {
+    uploadTargetProjectIdRef.current = projectId;
+    uploadFileInputRef.current?.click();
+  };
+
+  const handleUploadFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일 다시 선택해도 onChange가 트리거되도록 초기화
+    const projectId = uploadTargetProjectIdRef.current;
+    if (!file || !projectId) return;
+
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+      window.alert(`지원하지 않는 파일 형식: ${ext}`);
+      return;
+    }
+
+    setUploadingProjectId(projectId);
+    try {
+      await onUploadToProject(projectId, file);
+    } finally {
+      setUploadingProjectId(null);
     }
   };
 
@@ -204,6 +237,15 @@ export default function Sidebar({
           <FolderPlus size={16} />
           프로젝트
         </button>
+        {/* 프로젝트 행마다 있는 업로드 버튼이 공유하는 숨겨진 input. 어느 프로젝트용인지는
+            uploadTargetProjectIdRef로 기억해뒀다가 파일 선택 시점에 꺼내 쓴다. */}
+        <input
+          ref={uploadFileInputRef}
+          type="file"
+          accept=".pdf,.docx"
+          className="hidden"
+          onChange={handleUploadFileChange}
+        />
       </div>
 
       <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
@@ -250,6 +292,18 @@ export default function Sidebar({
                   className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-sidebar-accent group-hover/project:flex"
                 >
                   <Plus size={12} />
+                </button>
+                <button
+                  onClick={() => startUploadToProject(project.id)}
+                  disabled={uploadingProjectId === project.id}
+                  title="이 프로젝트에 문서 업로드"
+                  className="hidden shrink-0 items-center justify-center rounded-md p-1 text-muted-foreground hover:bg-sidebar-accent disabled:opacity-50 group-hover/project:flex"
+                >
+                  {uploadingProjectId === project.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Upload size={12} />
+                  )}
                 </button>
                 <button
                   onClick={() => onDeleteProject(project.id)}
