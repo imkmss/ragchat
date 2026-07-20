@@ -3,11 +3,11 @@
 
 const API_BASE = '/api';
 
-export async function streamChat(question, history, { onSources, onToken, onDone, onError }) {
+export async function streamChat(question, history, projectId, { onSources, onToken, onDone, onError }) {
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, history }),
+    body: JSON.stringify({ question, history, project_id: projectId }),
   });
 
   if (!response.ok || !response.body) {
@@ -68,9 +68,10 @@ export async function indexDirectory(path) {
   return response.json();
 }
 
-export async function uploadDocument(file) {
+export async function uploadDocument(file, projectId) {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('project_id', projectId);
 
   const response = await fetch(`${API_BASE}/upload`, {
     method: 'POST',
@@ -84,8 +85,9 @@ export async function uploadDocument(file) {
   return data;
 }
 
-export async function listDocuments() {
-  const response = await fetch(`${API_BASE}/documents`);
+export async function listDocuments(projectId) {
+  if (!projectId) return [];
+  const response = await fetch(`${API_BASE}/documents?project_id=${encodeURIComponent(projectId)}`);
   if (!response.ok) return [];
   return response.json();
 }
@@ -96,8 +98,8 @@ export async function getModels() {
   return response.json();
 }
 
-export async function deleteDocument(source) {
-  const response = await fetch(`${API_BASE}/documents/${encodeURIComponent(source)}`, {
+export async function deleteDocument(docId) {
+  const response = await fetch(`${API_BASE}/documents/${encodeURIComponent(docId)}`, {
     method: 'DELETE',
   });
   const data = await response.json().catch(() => ({}));
