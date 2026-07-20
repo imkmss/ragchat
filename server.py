@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 import requests
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -42,6 +42,8 @@ class ChatRequest(BaseModel):
     question: str
     top_k: int = config.TOP_K
     history: list[Message] = []
+    # 프로젝트 안 채팅만 그 프로젝트 문서를 검색한다. 없으면(미분류 채팅) 검색을 아예 건너뛴다.
+    project_id: str | None = None
 
 
 class IndexRequest(BaseModel):
@@ -61,7 +63,7 @@ def chat(req: ChatRequest) -> StreamingResponse:
     def event_stream():
         history = [m.model_dump() for m in req.history]
         sources, token_stream, stats = answer_question_stream(
-            req.question, top_k=req.top_k, history=history
+            req.question, top_k=req.top_k, history=history, project_id=req.project_id
         )
         yield _sse({"type": "sources", "data": sources})
         try:
@@ -87,37 +89,39 @@ def index(req: IndexRequest) -> dict:
 
 
 @app.post("/upload")
-def upload(file: UploadFile = File(...)) -> dict:
+def upload(file: UploadFile = File(...), project_id: str = Form(...)) -> dict:
     suffix = Path(file.filename).suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
         raise HTTPException(status_code=400, detail=f"지원하지 않는 파일 형식: {suffix}")
+    if not project_id:
+        raise HTTPException(status_code=400, detail="프로젝트를 먼저 선택해야 문서를 업로드할 수 있습니다")
 
     # 디스크에 안 쓰고 업로드된 바이트를 그대로 파싱한다 — 인덱싱이 끝나면
     # ChromaDB에 검색 가능한 내용이 다 들어가므로 원본 파일을 남겨둘 필요가 없다.
     data = file.file.read()
-    count = index_document(data, file.filename)
-    return {"filename": file.filename, "chunks": count}
+    result = index_document(data, file.filename, project_id)
+    return {"filename": file.filename, **result}
 
 
 @app.get("/documents")
-def documents() -> list[dict]:
-    return list_documents()
+def documents(project_id: str) -> list[dict]:
+    return list_documents(project_id)
 
 
-@app.get("/documents/{source}")
-def document_detail(source: str) -> list[dict]:
-    chunks = get_document_chunks(source)
+@app.get("/documents/{doc_id}")
+def document_detail(doc_id: str) -> list[dict]:
+    chunks = get_document_chunks(doc_id)
     if not chunks:
-        raise HTTPException(status_code=404, detail=f"문서를 찾을 수 없음: {source}")
+        raise HTTPException(status_code=404, detail=f"문서를 찾을 수 없음: {doc_id}")
     return chunks
 
 
-@app.delete("/documents/{source}")
-def delete_document_endpoint(source: str) -> dict:
-    deleted = delete_document(source)
+@app.delete("/documents/{doc_id}")
+def delete_document_endpoint(doc_id: str) -> dict:
+    deleted = delete_document(doc_id)
     if deleted == 0:
-        raise HTTPException(status_code=404, detail=f"문서를 찾을 수 없음: {source}")
-    return {"source": source, "deleted_chunks": deleted}
+        raise HTTPException(status_code=404, detail=f"문서를 찾을 수 없음: {doc_id}")
+    return {"doc_id": doc_id, "deleted_chunks": deleted}
 
 
 @app.get("/models")
