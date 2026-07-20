@@ -34,7 +34,7 @@ class Chunk:
     metadata: dict = field(default_factory=dict)
 
 
-def chunk_pages(pages: list[RawPage]) -> list[Chunk]:
+def chunk_pages(pages: list[RawPage], doc_id: str, project_id: str) -> list[Chunk]:
     if not pages:
         return []
 
@@ -64,12 +64,20 @@ def chunk_pages(pages: list[RawPage]) -> list[Chunk]:
             offset = full_text.find(piece)
         search_from = offset + 1
 
-        chunk_id = f"{source}:c{i}"
+        # id를 파일명이 아니라 doc_id 기준으로 만들어야, 같은 파일명이 다른 프로젝트에
+        # 있거나 같은 문서를 재업로드했을 때 청크 id가 충돌하지 않는다.
+        chunk_id = f"{doc_id}:c{i}"
         chunks.append(
             Chunk(
                 id=chunk_id,
                 text=piece,
-                metadata={"source": source, "page": page_at(offset), "chunk_index": i},
+                metadata={
+                    "source": source,
+                    "page": page_at(offset),
+                    "chunk_index": i,
+                    "doc_id": doc_id,
+                    "project_id": project_id,
+                },
             )
         )
     return chunks
