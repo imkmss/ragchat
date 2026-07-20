@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -7,7 +8,10 @@ CHUNK_SIZE_TOKENS = 300
 CHUNK_OVERLAP_TOKENS = 50
 
 # --- Ollama (임베딩 + 생성 공용 로컬 API) ---
-OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+# 로컬 개발 환경(호스트에서 직접 uvicorn 실행)에서는 127.0.0.1이 맞지만, 도커로 띄우면
+# Ollama가 별도 컨테이너라 컨테이너 이름(예: http://ollama:11434)으로 접근해야 하므로
+# 환경변수로 오버라이드 가능하게 둔다.
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 
 # --- Embedding ---
 EMBEDDING_API_MODEL = "qwen3-embedding:0.6b"
