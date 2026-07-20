@@ -7,7 +7,14 @@ import { uploadDocument } from '../lib/api';
 const MAX_HISTORY = 5;
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
 
-export default function ChatWindow({ session, projects, isLoading, onSend, onDocumentUploaded }) {
+export default function ChatWindow({
+  session,
+  projects,
+  currentProjectId,
+  isLoading,
+  onSend,
+  onDocumentUploaded,
+}) {
   const [input, setInput] = useState('');
   const scrollRef = useRef(null);
   const dockRef = useRef(null);
@@ -19,7 +26,9 @@ export default function ChatWindow({ session, projects, isLoading, onSend, onDoc
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [dockHeight, setDockHeight] = useState(0);
   const hasMessages = Boolean(session && session.messages.length > 0);
-  const project = projects?.find((p) => p.id === session?.projectId);
+  // session?.projectId가 아니라 currentProjectId를 써야, 세션이 아직 안 만들어진
+  // "새 채팅 대기" 상태(프로젝트의 + 버튼으로 시작한 경우)에서도 프로젝트를 올바르게 인식한다.
+  const project = projects?.find((p) => p.id === currentProjectId);
 
   const historyRef = useRef([]); // 최근 입력이 앞에 오도록, 최대 5개
   const historyIndexRef = useRef(-1); // -1 = 히스토리 탐색 중 아님
@@ -58,9 +67,13 @@ export default function ChatWindow({ session, projects, isLoading, onSend, onDoc
     if (!question || isLoading || uploading) return;
 
     if (attachedFile) {
+      if (!project) {
+        window.alert('문서는 프로젝트 안에서만 업로드할 수 있어요. 먼저 프로젝트를 만들거나 선택해주세요.');
+        return;
+      }
       setUploading(true);
       try {
-        await uploadDocument(attachedFile);
+        await uploadDocument(attachedFile, project.id);
         await onDocumentUploaded?.();
       } catch (err) {
         setUploadError(err.message);
