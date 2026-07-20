@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import RightSidebar from './components/RightSidebar';
-import { streamChat, listDocuments, generateTitle } from './lib/api';
+import { streamChat, listDocuments, generateTitle, uploadDocument } from './lib/api';
 import {
   loadSessions,
   saveSessions,
@@ -35,15 +35,18 @@ function App() {
     saveProjects(projects);
   }, [projects]);
 
-  const refreshDocuments = async () => {
-    setDocuments(await listDocuments());
+  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
+  // 아직 세션이 안 만들어진 "새 채팅 대기" 상태에서도(draftProjectId), 그리고 이미
+  // 프로젝트에 속한 채팅을 보고 있을 때도 우측 문서 목록/업로드가 같은 프로젝트를 보게 한다.
+  const currentProjectId = activeSession?.projectId ?? draftProjectId;
+
+  const refreshDocuments = async (projectId) => {
+    setDocuments(await listDocuments(projectId));
   };
 
   useEffect(() => {
-    refreshDocuments();
-  }, []);
-
-  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
+    refreshDocuments(currentProjectId);
+  }, [currentProjectId]);
 
   const updateSession = (id, updater) => {
     setSessions((prev) => {
@@ -92,6 +95,19 @@ function App() {
     setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)));
   };
 
+  const handleUploadToProject = async (projectId, file) => {
+    try {
+      const result = await uploadDocument(file, projectId);
+      if (projectId === currentProjectId) {
+        await refreshDocuments(projectId);
+      }
+      return result;
+    } catch (err) {
+      window.alert(err.message);
+      return null;
+    }
+  };
+
   const handleSend = async (question) => {
     let session = activeSession;
     if (!session) {
@@ -130,7 +146,7 @@ function App() {
 
     setIsLoading(true);
     try {
-      await streamChat(question, history, {
+      await streamChat(question, history, session.projectId, {
         onSources: (sources) => {
           updateSession(sessionId, (s) => {
             const messages = [...s.messages];
@@ -186,15 +202,21 @@ function App() {
         onNewProject={handleNewProject}
         onDeleteProject={handleDeleteProject}
         onMoveToProject={handleMoveToProject}
+        onUploadToProject={handleUploadToProject}
       />
       <ChatWindow
         session={activeSession}
         projects={projects}
+        currentProjectId={currentProjectId}
         isLoading={isLoading}
         onSend={handleSend}
-        onDocumentUploaded={refreshDocuments}
+        onDocumentUploaded={() => refreshDocuments(currentProjectId)}
       />
-      <RightSidebar documents={documents} onRefresh={refreshDocuments} />
+      <RightSidebar
+        documents={documents}
+        project={projects.find((p) => p.id === currentProjectId) ?? null}
+        onRefresh={() => refreshDocuments(currentProjectId)}
+      />
     </div>
   );
 }
