@@ -323,7 +323,7 @@ export default function Sidebar({
                     />
                   ) : (
                     <span
-                      className="flex-1 truncate"
+                      className="min-w-0 flex-1 truncate"
                       onDoubleClick={(e) => {
                         e.stopPropagation();
                         setEditingProjectId(project.id);
