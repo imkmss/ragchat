@@ -5,7 +5,7 @@ import { deleteDocument } from '../lib/api';
 // 문서 업로드는 좌측 사이드바의 프로젝트 행에서 한다 (문서는 프로젝트별로 격리되므로
 // 업로드도 어느 프로젝트인지가 항상 명확한 그 위치에서 트리거하는 게 맞다).
 // 여기서는 현재 보고 있는 채팅이 속한 프로젝트의 문서를 읽기 전용으로 보여준다.
-export default function RightSidebar({ documents, project, onRefresh }) {
+export default function RightSidebar({ documents, project, onRefresh, isUploading }) {
   const [collapsed, setCollapsed] = useState(!project);
   const [deletingDocId, setDeletingDocId] = useState(null);
   const [error, setError] = useState(null);
@@ -63,6 +63,13 @@ export default function RightSidebar({ documents, project, onRefresh }) {
       </div>
 
       {error && <p className="px-3 pb-1 text-xs text-destructive">{error}</p>}
+
+      {isUploading && (
+        <div className="mx-2 mt-1 flex items-center gap-2 rounded-lg bg-sidebar-accent/40 px-3 py-2 text-xs text-muted-foreground">
+          <Loader2 size={13} className="shrink-0 animate-spin" />
+          문서 업로드 중...
+        </div>
+      )}
 
       <nav className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
         {!project && (

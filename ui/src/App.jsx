@@ -22,6 +22,10 @@ function App() {
   const [activeId, setActiveId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
+  // 지금 보고 있는 프로젝트로 업로드가 진행 중인지 — 우측 사이드바 로딩 표시용.
+  // (좌측 사이드바 프로젝트 행의 업로드 버튼은 어느 프로젝트로 올리든 자체 스피너가 있어
+  // 별개로 동작하고, 여긴 "지금 보고 있는 프로젝트"로 올라갈 때만 켠다.)
+  const [isUploading, setIsUploading] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects());
   // "새 채팅"을 눌러도 세션은 아직 안 만들고(목록에 안 남게), 실제로 첫 메시지를
   // 보낼 때 만든다. 그 전까지 이 프로젝트 소속으로 만들 예정인지만 기억해둔다.
@@ -44,9 +48,12 @@ function App() {
     setDocuments(await listDocuments(projectId));
   };
 
+  // currentProjectId만 보면 같은 프로젝트의 다른 채팅방으로 전환할 때는 값이 안 바뀌어서
+  // effect가 재실행이 안 된다 — 그 사이 다른 채팅방(또는 다른 탭)에서 업로드된 문서를
+  // 놓치게 되므로, 어느 채팅방을 보고 있는지(activeId) 바뀔 때도 항상 다시 가져온다.
   useEffect(() => {
     refreshDocuments(currentProjectId);
-  }, [currentProjectId]);
+  }, [currentProjectId, activeId]);
 
   const updateSession = (id, updater) => {
     setSessions((prev) => {
@@ -96,15 +103,19 @@ function App() {
   };
 
   const handleUploadToProject = async (projectId, file) => {
+    const isCurrent = projectId === currentProjectId;
+    if (isCurrent) setIsUploading(true);
     try {
       const result = await uploadDocument(file, projectId);
-      if (projectId === currentProjectId) {
+      if (isCurrent) {
         await refreshDocuments(projectId);
       }
       return result;
     } catch (err) {
       window.alert(err.message);
       return null;
+    } finally {
+      if (isCurrent) setIsUploading(false);
     }
   };
 
@@ -211,11 +222,13 @@ function App() {
         isLoading={isLoading}
         onSend={handleSend}
         onDocumentUploaded={() => refreshDocuments(currentProjectId)}
+        onUploadingChange={setIsUploading}
       />
       <RightSidebar
         documents={documents}
         project={projects.find((p) => p.id === currentProjectId) ?? null}
         onRefresh={() => refreshDocuments(currentProjectId)}
+        isUploading={isUploading}
       />
     </div>
   );

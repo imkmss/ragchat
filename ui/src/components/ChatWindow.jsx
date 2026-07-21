@@ -14,6 +14,7 @@ export default function ChatWindow({
   isLoading,
   onSend,
   onDocumentUploaded,
+  onUploadingChange,
 }) {
   const [input, setInput] = useState('');
   const scrollRef = useRef(null);
@@ -72,6 +73,7 @@ export default function ChatWindow({
         return;
       }
       setUploading(true);
+      onUploadingChange?.(true);
       try {
         await uploadDocument(attachedFile, project.id);
         await onDocumentUploaded?.();
@@ -79,9 +81,11 @@ export default function ChatWindow({
         setUploadError(err.message);
         setTimeout(() => setUploadError(null), 4000);
         setUploading(false);
+        onUploadingChange?.(false);
         return; // 업로드 실패하면 질문 전송도 중단
       }
       setUploading(false);
+      onUploadingChange?.(false);
       setAttachedFile(null);
     }
 
