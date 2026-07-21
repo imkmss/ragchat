@@ -28,6 +28,7 @@ export default function Sidebar({
   onDelete,
   projects,
   onNewProject,
+  onRenameProject,
   onDeleteProject,
   onMoveToProject,
   onUploadToProject,
@@ -35,6 +36,9 @@ export default function Sidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState(() => new Set());
   const [dragOverTarget, setDragOverTarget] = useState(null); // project id, 'ungrouped', 또는 null
+  const [editingProjectId, setEditingProjectId] = useState(null); // 이름을 인라인 수정 중인 프로젝트
+  const [editingName, setEditingName] = useState('');
+  const skipBlurCommitRef = useRef(false); // Escape로 취소할 때 뒤이은 blur가 다시 커밋하는 걸 방지
   const uploadFileInputRef = useRef(null);
   const uploadTargetProjectIdRef = useRef(null); // 업로드 버튼을 누른 프로젝트를 기억해뒀다가 파일 선택 후 씀
   const [uploadingProjectId, setUploadingProjectId] = useState(null);
@@ -78,6 +82,11 @@ export default function Sidebar({
     if (window.confirm(`"${session.title}" 채팅을 삭제할까요?`)) {
       onDelete(session.id);
     }
+  };
+
+  const commitRenameProject = () => {
+    if (editingProjectId) onRenameProject(editingProjectId, editingName);
+    setEditingProjectId(null);
   };
 
   const startUploadToProject = (projectId) => {
@@ -277,20 +286,56 @@ export default function Sidebar({
                   dragOverTarget === project.id ? 'bg-primary/10 ring-1 ring-primary/40' : ''
                 }`}
               >
-                <button
+                <div
                   onClick={() => {
+                    if (editingProjectId === project.id) return; // 편집 중엔 접기/새채팅 전환 안 함
                     toggleProjectCollapsed(project.id);
                     // 프로젝트 이름을 눌러도 "이 프로젝트에 새 채팅" 대기 상태로 전환해서
                     // 우측 문서 사이드바가 이 프로젝트 문서를 바로 보여주게 한다.
                     onNew(project.id);
                   }}
-                  className="flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/60"
+                  className="flex flex-1 min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/60"
                 >
                   {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
                   <Folder size={13} className="shrink-0" />
-                  <span className="flex-1 truncate">{project.name}</span>
+                  {editingProjectId === project.id ? (
+                    <input
+                      autoFocus
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRenameProject();
+                        if (e.key === 'Escape') {
+                          // input이 사라지면서 브라우저가 blur를 또 발생시켜 커밋해버리는 걸 막는다
+                          skipBlurCommitRef.current = true;
+                          setEditingProjectId(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (skipBlurCommitRef.current) {
+                          skipBlurCommitRef.current = false;
+                          return;
+                        }
+                        commitRenameProject();
+                      }}
+                      className="min-w-0 flex-1 rounded border border-border/50 bg-background px-1 py-0.5 text-xs text-foreground outline-none"
+                    />
+                  ) : (
+                    <span
+                      className="flex-1 truncate"
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProjectId(project.id);
+                        setEditingName(project.name);
+                      }}
+                      title="더블클릭하여 이름 수정"
+                    >
+                      {project.name}
+                    </span>
+                  )}
                   <span className="shrink-0 opacity-60">{projectSessions.length}</span>
-                </button>
+                </div>
                 <button
                   onClick={() => onNew(project.id)}
                   title="이 프로젝트에 새 채팅"

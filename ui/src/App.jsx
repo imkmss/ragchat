@@ -87,6 +87,12 @@ function App() {
     setProjects((prev) => [createProject(name), ...prev]);
   };
 
+  const handleRenameProject = (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, name: trimmed } : p)));
+  };
+
   const handleDeleteProject = (id) => {
     const project = projects.find((p) => p.id === id);
     if (!project) return;
@@ -211,6 +217,7 @@ function App() {
         onDelete={handleDeleteSession}
         projects={projects}
         onNewProject={handleNewProject}
+        onRenameProject={handleRenameProject}
         onDeleteProject={handleDeleteProject}
         onMoveToProject={handleMoveToProject}
         onUploadToProject={handleUploadToProject}
