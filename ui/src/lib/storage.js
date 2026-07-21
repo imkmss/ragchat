@@ -3,6 +3,17 @@
 const STORAGE_KEY = 'ragchat-sessions';
 const PROJECTS_STORAGE_KEY = 'ragchat-projects';
 
+// crypto.randomUUID()는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작해서,
+// 사내망 IP로 그냥 http:// 접속하면 죽는다. crypto.getRandomValues()는 보안 컨텍스트
+// 제약이 없어서 이걸로 직접 UUID v4를 만든다.
+function generateId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function loadSessions() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -20,7 +31,7 @@ export function saveSessions(sessions) {
 export function createSession(projectId = null) {
   const now = Date.now();
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     projectId,
     title: '새 채팅',
     messages: [],
@@ -44,7 +55,7 @@ export function saveProjects(projects) {
 
 export function createProject(name) {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     name,
     createdAt: Date.now(),
   };
