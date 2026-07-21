@@ -1,21 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileText, Trash2, Loader2, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { deleteDocument } from '../lib/api';
+
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 420;
+const DEFAULT_WIDTH = 256;
+const STORAGE_KEY = 'ragchat-rightsidebar-width';
 
 // 문서 업로드는 좌측 사이드바의 프로젝트 행에서 한다 (문서는 프로젝트별로 격리되므로
 // 업로드도 어느 프로젝트인지가 항상 명확한 그 위치에서 트리거하는 게 맞다).
 // 여기서는 현재 보고 있는 채팅이 속한 프로젝트의 문서를 읽기 전용으로 보여준다.
 export default function RightSidebar({ documents, project, onRefresh, isUploading }) {
-  const [collapsed, setCollapsed] = useState(!project);
+  const [collapsed, setCollapsed] = useState(false);
   const [deletingDocId, setDeletingDocId] = useState(null);
   const [error, setError] = useState(null);
+  const [width, setWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(STORAGE_KEY));
+    return saved >= MIN_WIDTH && saved <= MAX_WIDTH ? saved : DEFAULT_WIDTH;
+  });
+  const isResizingRef = useRef(false);
 
-  // 프로젝트가 바뀔 때마다(다른 프로젝트로 전환, 미분류 채팅/메인 화면으로 이동 등)
-  // 기본 상태로 되돌린다: 프로젝트가 있으면 펼침, 없으면 접힘. 같은 프로젝트를 보는 동안
-  // 사용자가 수동으로 접었다 펼쳤다 한 상태는 유지된다.
+  // 좌측 사이드바와 달리 이 패널은 화면 오른쪽 끝에 붙어있어서, 너비는 마우스 X좌표가
+  // 아니라 "창 오른쪽 끝까지의 거리"로 계산해야 한다.
   useEffect(() => {
-    setCollapsed(!project);
-  }, [project?.id]);
+    const handleMouseMove = (e) => {
+      if (!isResizingRef.current) return;
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, window.innerWidth - e.clientX)));
+    };
+    const handleMouseUp = () => {
+      if (!isResizingRef.current) return;
+      isResizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setWidth((w) => {
+        localStorage.setItem(STORAGE_KEY, String(w));
+        return w;
+      });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const startResizing = () => {
+    isResizingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   const handleDelete = async (doc) => {
     if (!window.confirm(`"${doc.source}"를 삭제할까요? (검색 인덱스에서 완전히 제거되어 더 이상 답변에 활용되지 않습니다)`)) {
@@ -48,7 +82,14 @@ export default function RightSidebar({ documents, project, onRefresh, isUploadin
   }
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-l border-border/30 bg-sidebar text-sidebar-foreground">
+    <aside
+      style={{ width }}
+      className="relative flex h-full shrink-0 flex-col border-l border-border/30 bg-sidebar text-sidebar-foreground"
+    >
+      <div
+        onMouseDown={startResizing}
+        className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-primary/40 active:bg-primary/60"
+      />
       <div className="flex items-center gap-2 px-3 pt-3 pb-1">
         <div className="flex-1 min-w-0 truncate text-xs font-medium text-muted-foreground">
           {project ? `${project.name} 프로젝트의 문서 (${documents.length})` : '문서'}
