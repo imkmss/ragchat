@@ -208,10 +208,10 @@ export default function ChatWindow({
           {project && (
             <span
               title={`${project.name}`}
-              className="flex min-w-0 items-center gap-1.5 rounded-full border border-border/30 bg-muted/60 px-3 py-1 text-xs text-muted-foreground"
+              className="flex min-w-0 max-w-40 items-center gap-1.5 rounded-full border border-border/30 bg-muted/60 px-3 py-1 text-xs text-muted-foreground"
             >
               <Folder size={12} className="shrink-0" />
-              <span className="truncate">
+              <span className="min-w-0 flex-1 truncate">
                 {project.name}
               </span>
             </span>
