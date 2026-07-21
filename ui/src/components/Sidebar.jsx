@@ -278,7 +278,12 @@ export default function Sidebar({
                 }`}
               >
                 <button
-                  onClick={() => toggleProjectCollapsed(project.id)}
+                  onClick={() => {
+                    toggleProjectCollapsed(project.id);
+                    // 프로젝트 이름을 눌러도 "이 프로젝트에 새 채팅" 대기 상태로 전환해서
+                    // 우측 문서 사이드바가 이 프로젝트 문서를 바로 보여주게 한다.
+                    onNew(project.id);
+                  }}
                   className="flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/60"
                 >
                   {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
