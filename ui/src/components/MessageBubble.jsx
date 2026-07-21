@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Copy, Check, Hash, Zap } from 'lucide-react';
 import TypingIndicator from './TypingIndicator';
+import { copyToClipboard } from '../lib/clipboard';
 
 export default function MessageBubble({ message }) {
   const isUser = message.role === 'user';
@@ -8,7 +9,7 @@ export default function MessageBubble({ message }) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await copyToClipboard(message.content);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

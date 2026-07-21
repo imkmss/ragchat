@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Cpu, Check } from 'lucide-react';
 import { getModels } from '../lib/api';
+import { copyToClipboard } from '../lib/clipboard';
 
 export default function ModelBadge() {
   const [models, setModels] = useState(null);
@@ -14,7 +15,7 @@ export default function ModelBadge() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(`임베딩: ${models.embedding} / 생성: ${models.generation}`);
+      await copyToClipboard(`임베딩: ${models.embedding} / 생성: ${models.generation}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
