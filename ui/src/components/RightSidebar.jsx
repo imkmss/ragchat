@@ -132,7 +132,7 @@ export default function RightSidebar({ documents, project, onRefresh, isUploadin
               title={doc.source}
             >
               <FileText size={14} className="shrink-0 opacity-60" />
-              <span className="flex-1 truncate">{doc.source}</span>
+              <span className="min-w-0 flex-1 truncate">{doc.source}</span>
               <span className="shrink-0 text-xs text-muted-foreground group-hover:hidden">
                 {doc.chunks}
               </span>

@@ -190,7 +190,7 @@ export default function Sidebar({
         className="flex flex-1 min-w-0 items-center gap-2 px-3 py-2 text-left text-sm truncate"
       >
         <MessageSquare size={14} className="shrink-0 opacity-60" />
-        <span className="truncate">{session.title}</span>
+        <span className="min-w-0 flex-1 truncate">{session.title}</span>
       </button>
       <select
         value={session.projectId ?? ''}

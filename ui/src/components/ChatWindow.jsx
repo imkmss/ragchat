@@ -157,7 +157,7 @@ export default function ChatWindow({
       {attachedFile && (
         <div className="flex items-center gap-2 rounded-xl bg-background/60 px-3 py-2 text-sm">
           <FileText size={14} className="shrink-0 text-muted-foreground" />
-          <span className="flex-1 truncate">{attachedFile.name}</span>
+          <span className="min-w-0 flex-1 truncate">{attachedFile.name}</span>
           {uploading && (
             <span className="shrink-0 text-xs text-muted-foreground">업로드 중...</span>
           )}
