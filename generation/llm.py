@@ -18,13 +18,14 @@ _LOCAL_CHAT_URL = f"{config.LOCAL_GENERATION_BASE_URL}/api/chat"
 _SSE_DONE = "[DONE]"
 
 
-def _stream_remote(messages: list[dict], stats: dict | None) -> Iterator[str]:
+def _stream_remote(messages: list[dict], stats: dict | None, enable_thinking: bool) -> Iterator[str]:
     """사내망 llama.cpp 서버 (OpenAI 호환 SSE)."""
     payload = {
         "model": config.GENERATION_MODEL,
         "messages": messages,
         "stream": True,
         "temperature": config.GENERATION_TEMPERATURE,
+        "chat_template_kwargs": {"enable_thinking": enable_thinking},
     }
     # connect timeout을 짧게 둬서, 사내망에 아예 연결이 안 되는 상황(회사 밖 등)을
     # 빠르게 실패시켜 로컬 폴백으로 넘어갈 수 있게 한다.
@@ -85,12 +86,17 @@ def _stream_local(messages: list[dict], stats: dict | None) -> Iterator[str]:
                 break
 
 
-def generate_answer_stream(messages: list[dict], stats: dict | None = None) -> Iterator[str]:
+def generate_answer_stream(
+    messages: list[dict], stats: dict | None = None, enable_thinking: bool = False
+) -> Iterator[str]:
     """stats를 넘기면, 스트림이 끝난 뒤(제너레이터를 다 소진한 뒤) 그 dict에
     {"tokens": ..., "tokens_per_second": ...}가 채워진다.
+
+    enable_thinking은 원격 llama.cpp 서버에서만 지원된다(로컬 Ollama 폴백은 항상
+    non-thinking으로 동작).
     """
     try:
-        yield from _stream_remote(messages, stats)
+        yield from _stream_remote(messages, stats, enable_thinking)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         # 사내망 서버에 연결 자체가 안 되는 경우(회사 밖, VPN 미접속 등)만 폴백한다.
         # 스트림 도중 끊기는 경우는 이미 토큰이 나간 뒤라 폴백하지 않고 그대로 에러 처리한다.
