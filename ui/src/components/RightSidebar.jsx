@@ -119,7 +119,7 @@ export default function RightSidebar({ documents, project, onRefresh, isUploadin
             선택해주세요.
           </p>
         )}
-        {project && documents.length === 0 && (
+        {project && documents.length === 0 && !isUploading && (
           <p className="px-2 py-4 text-sm text-muted-foreground">
             아직 업로드된 문서가 없습니다. 좌측 프로젝트 목록의 업로드 버튼으로 추가해보세요.
           </p>
