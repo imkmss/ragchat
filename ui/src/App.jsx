@@ -81,10 +81,10 @@ function App() {
     }
   };
 
-  const handleNewProject = () => {
-    const name = window.prompt('프로젝트 이름을 입력하세요')?.trim();
-    if (!name) return;
-    setProjects((prev) => [createProject(name), ...prev]);
+  const handleNewProject = (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setProjects((prev) => [createProject(trimmed), ...prev]);
   };
 
   const handleRenameProject = (id, name) => {

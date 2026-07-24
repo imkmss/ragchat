@@ -39,6 +39,9 @@ export default function Sidebar({
   const [editingProjectId, setEditingProjectId] = useState(null); // 이름을 인라인 수정 중인 프로젝트
   const [editingName, setEditingName] = useState('');
   const skipBlurCommitRef = useRef(false); // Escape로 취소할 때 뒤이은 blur가 다시 커밋하는 걸 방지
+  const [isCreatingProject, setIsCreatingProject] = useState(false); // 새 프로젝트 이름을 인라인으로 입력 중인지
+  const [newProjectName, setNewProjectName] = useState('');
+  const skipCreateBlurRef = useRef(false);
   const uploadFileInputRef = useRef(null);
   const uploadTargetProjectIdRef = useRef(null); // 업로드 버튼을 누른 프로젝트를 기억해뒀다가 파일 선택 후 씀
   const [uploadingProjectId, setUploadingProjectId] = useState(null);
@@ -87,6 +90,12 @@ export default function Sidebar({
   const commitRenameProject = () => {
     if (editingProjectId) onRenameProject(editingProjectId, editingName);
     setEditingProjectId(null);
+  };
+
+  const commitNewProject = () => {
+    if (newProjectName.trim()) onNewProject(newProjectName);
+    setIsCreatingProject(false);
+    setNewProjectName('');
   };
 
   const startUploadToProject = (projectId) => {
@@ -239,13 +248,42 @@ export default function Sidebar({
       </div>
 
       <div className="p-3 pb-2">
-        <button
-          onClick={onNewProject}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <FolderPlus size={16} />
-          프로젝트
-        </button>
+        {isCreatingProject ? (
+          <div className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm">
+            <FolderPlus size={16} className="shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitNewProject();
+                if (e.key === 'Escape') {
+                  // input이 사라지면서 브라우저가 blur를 또 발생시켜 커밋해버리는 걸 막는다
+                  skipCreateBlurRef.current = true;
+                  setIsCreatingProject(false);
+                  setNewProjectName('');
+                }
+              }}
+              onBlur={() => {
+                if (skipCreateBlurRef.current) {
+                  skipCreateBlurRef.current = false;
+                  return;
+                }
+                commitNewProject();
+              }}
+              placeholder="프로젝트 이름"
+              className="min-w-0 flex-1 rounded border border-border/50 bg-background px-1 py-0.5 text-sm text-foreground outline-none"
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsCreatingProject(true)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent transition-colors"
+          >
+            <FolderPlus size={16} />
+            프로젝트
+          </button>
+        )}
         {/* 프로젝트 행마다 있는 업로드 버튼이 공유하는 숨겨진 input. 어느 프로젝트용인지는
             uploadTargetProjectIdRef로 기억해뒀다가 파일 선택 시점에 꺼내 쓴다. */}
         <input
