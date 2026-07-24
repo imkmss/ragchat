@@ -2,6 +2,9 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
     working_dir: /app
     volumes:
       - ollama_data:/root/.ollama
