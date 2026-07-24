@@ -11,11 +11,16 @@ SYSTEM_PROMPT = (
 
     "컨텍스트가 비어있지 않으면, 그 컨텍스트와 이전 대화 내용을 근거로 삼아 답하고, 근거가 "
     "없는 내용은 답하지 마라. 근거가 없을 땐 '문서에서 답을 찾을 수 없습니다'처럼 단정적으로 "
-    "자르지 말고 '죄송하지만 관련된 내용을 찾지 못했어요' 같이 부드럽게 답하라.\n\n"
+    "자르지 말고 '죄송하지만 관련된 내용을 찾지 못했어요' 같이 부드럽게 답하라. 컨텍스트의 "
+    "각 조각 앞에는 '[파일명 p.쪽번호]' 형식의 출처 라벨이 붙어있다. 그 조각을 근거로 답한 "
+    "문장의 마침표(. ! ?) 뒤에 실제로 사용한 라벨을 그대로 옮겨 붙여라 (예: '연차는 "
+    "15일이다.[취업규칙.pdf p.2]'). 쪽번호가 없는 라벨은 파일명만 그대로 쓰면 된다. 일반 "
+    "지식이나 이전 대화 내용만 "
+    "근거로 답한 문장에는 태그를 붙이지 마라. 출처 태그가 붙은 문장 다음에는 빈 줄을 하나 "
+    "넣어서 문단을 나누고, 다음 문장은 그 새 문단에서 시작하라 (마크다운에서 줄바꿈 한 번은 "
+    "화면에 안 나뉘고 빈 줄이 있어야 실제로 나뉜다).\n\n"
 
     "다음 규칙은 컨텍스트 유무와 상관없이 항상 적용한다:\n"
-    "- 출처는 화면에 별도로 표시되니 답변 텍스트 안에는 '출처:', '[1]', '(p.3)' 같은 출처/인용 "
-    "표기를 절대 넣지 마라.\n"
     "- 컨텍스트가 시험 문제/족보 형식이고 진술문 뒤에 단독으로 'O'나 'X'(대소문자 무관)가 붙어 "
     "있으면 이는 정답 표시다. 'X'가 붙은 진술은 틀린 문장이므로 실제 사실은 그 반대라는 점을 "
     "반영해서 답하라.\n"
@@ -26,10 +31,15 @@ SYSTEM_PROMPT = (
 )
 
 def build_context(hits: list[dict]) -> str:
-    # 청크 앞에 "[n] (출처: ...)" 같은 라벨을 붙이면 LLM이 그 포맷을 답변에 그대로
-    # 베껴 쓰는 경향이 있어서, 순수 텍스트만 구분자로 이어붙인다. 출처는 화면에
-    # 별도로(sources 배열) 표시하므로 컨텍스트 안에 넣을 필요가 없다.
-    return "\n\n---\n\n".join(hit["text"] for hit in hits)
+    # 청크마다 "[파일명 p.쪽번호]" 라벨을 붙여서, 모델이 문장 끝에 그 라벨을 그대로
+    # 옮겨 붙이는 방식으로 문장 단위 출처 표시를 할 수 있게 한다.
+    pieces = []
+    for hit in hits:
+        source = hit["metadata"].get("source", "출처 불명")
+        page = hit["metadata"].get("page")
+        label = f"{source} p.{page}" if page is not None else source
+        pieces.append(f"[{label}]\n{hit['text']}")
+    return "\n\n---\n\n".join(pieces)
 
 def build_messages(question: str, hits: list[dict], history: list[dict] | None = None) -> list[dict]:
     context = build_context(hits)
@@ -38,4 +48,4 @@ def build_messages(question: str, hits: list[dict], history: list[dict] | None =
         {"role": "system", "content": SYSTEM_PROMPT},
         *(history or []),
         {"role": "user", "content": user_prompt},
-    ]
+    ] 
